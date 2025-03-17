@@ -1,0 +1,13 @@
+{
+  "name": "local-chat",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "@huggingface/inference": "^3.5.2"
+  }
+}
