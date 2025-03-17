@@ -6,8 +6,9 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.21.2",
+    "@huggingface/inference": "^3.5.2",
     "cors": "^2.8.5",
-    "@huggingface/inference": "^3.5.2"
+    "express": "^4.21.2",
+    "react-syntax-highlighter": "^15.6.1"
   }
 }

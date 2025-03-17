@@ -1,6 +1,8 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { generateImage } from "./api/image";
 import {
   CHAT_TAGS,
@@ -10,6 +12,7 @@ import {
   BG_IMAGE_TIP,
 } from "./constants";
 import refreshIcon from "./assets/refresh.svg";
+import copyIcon from "./assets/copy.svg";
 import "./ChatContainer.css";
 
 export default function ChatContainer() {
@@ -55,6 +58,13 @@ export default function ChatContainer() {
     }
     setConversationId(null);
   };
+
+  useEffect(() => {
+    const savedMessages = sessionStorage.getItem(`${activeTag}Messages`);
+    if (savedMessages && activeTag !== CHAT_TAGS.MM.id) {
+      setMessages(JSON.parse(savedMessages));
+    }
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -204,26 +214,49 @@ export default function ChatContainer() {
           <div
             key={`message-${index}`}
             className={`message ${msg.sender}-message`}
-            onContextMenu={(e) => handleCopyMessage(e, msg.text)}
           >
-            {msg.sender === "bot" && (
-              <img
-                src={refreshIcon}
-                alt="refresh"
-                className="refresh-button"
-                onClick={() => sendMessage(messages[index - 1]?.text)}
-              />
-            )}
-            <ReactMarkdown
-              rehypePlugins={[rehypeRaw]}
-              components={{
-                think: ({ children }) => (
-                  <div className="think-block">{children}</div>
-                ),
-              }}
-            >
-              {msg.text}
-            </ReactMarkdown>
+            {msg.sender === "bot" && <div className="bot-avatar"></div>}
+            <div className="message-content">
+              <ReactMarkdown
+                components={{
+                  code: ({ node, inline, className, children, ...props }) => {
+                    const match = /language-([\w-]+)/.exec(className || "");
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        style={vscDarkPlus}
+                        language={match[1]}
+                        PreTag="div"
+                        {...props}
+                      >
+                        {String(children).replace(/\n$/, "")}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                }}
+              >
+                {msg.text}
+              </ReactMarkdown>
+              {msg.sender === "bot" && (
+                <div className="message-actions">
+                  <img
+                    src={refreshIcon}
+                    alt="refresh"
+                    className="action-button"
+                    onClick={() => sendMessage(messages[index - 1]?.text)}
+                  />
+                  <img
+                    src={copyIcon}
+                    alt="copy"
+                    className="action-button"
+                    onClick={(e) => handleCopyMessage(e, msg.text)}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         ))}
         {isLoading && (
