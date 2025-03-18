@@ -15,6 +15,10 @@ export const CHAT_TAGS = {
     id: "mm",
     name: "MM",
   },
+  CODE: {
+    id: "code",
+    name: "代码",
+  },
 };
 
 export const TAG_PLACEHOLDERS = {

@@ -5,6 +5,7 @@ class MessageHandler {
       draw: this.handleDrawMessage,
       mm: this.handleDrawMessage,
       news: this.handleSearchMessage,
+      code: this.handleSearchMessage,
     };
   }
 

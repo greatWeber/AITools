@@ -1,0 +1,105 @@
+.editor-container {
+  position: fixed;
+  top: 0;
+  right: -50%;
+  width: 50%;
+  height: 100vh;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(10px);
+  transition: right 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.editor-container.visible {
+  right: 0;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.language-selector {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px;
+  border-radius: 4px;
+  outline: none;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.close-button:hover {
+  color: #ff4444;
+}
+
+.editor-content {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 60px);
+  padding: 15px;
+  gap: 15px;
+}
+
+.code-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 15px;
+  font-family: "Fira Code", monospace;
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  border-radius: 4px;
+}
+
+.code-preview {
+  flex: 1;
+  overflow: auto;
+  border-radius: 4px;
+  background: #1e1e1e;
+}
+
+.code-preview pre {
+  margin: 0 !important;
+  border-radius: 4px;
+}
+
+.visible {
+  display: block;
+}
+.hide {
+  display: none;
+}
+
+.ai-tooltip {
+  position: absolute;
+  background: #2d2d2d;
+  color: #e0e0e0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 1001;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.ai-tooltip:hover {
+  background: #3d3d3d;
+}

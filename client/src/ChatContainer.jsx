@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { generateImage } from "./api/image";
+import Editor from "./components/Editor";
 import {
   CHAT_TAGS,
   TAG_PLACEHOLDERS,
@@ -18,11 +19,23 @@ import "./ChatContainer.css";
 export default function ChatContainer() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [pastedImage, setPastedImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTag, setActiveTag] = useState(CHAT_TAGS.SEARCH.id);
   const [conversationId, setConversationId] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [backgroundImage, setBackgroundImage] = useState("");
+  const [showEditor, setShowEditor] = useState(false);
+  const isInputDisabled =
+    activeTag === CHAT_TAGS.NEWS.id ||
+    activeTag === CHAT_TAGS.MM.id ||
+    activeTag === CHAT_TAGS.CODE.id;
+
+  const onAIOptimize = async (message, selectedText, language) => {
+    setActiveTag(CHAT_TAGS.CODE.id);
+    addMessage(selectedText, "user");
+    await sendMessage(message);
+  };
   const messagesEndRef = useRef(null);
 
   const tags = Object.values(CHAT_TAGS);
@@ -57,6 +70,11 @@ export default function ChatContainer() {
       setMessages(savedMessages ? JSON.parse(savedMessages) : []);
     }
     setConversationId(null);
+    if (tagId === CHAT_TAGS.CODE.id) {
+      setShowEditor(true);
+    } else {
+      setShowEditor(false);
+    }
   };
 
   useEffect(() => {
@@ -91,36 +109,34 @@ export default function ChatContainer() {
   const [botMessage, setBotMessage] = useState("");
 
   const handleBotMessage = (content) => {
-    if (activeTag === "search" || activeTag === "news") {
-      setBotMessage((prevBotMessage) => {
-        const updatedBotMessage = prevBotMessage + content;
-        setMessages((prevMessages) => {
-          const newMessages = [...prevMessages];
-          if (
-            newMessages.length > 0 &&
-            newMessages[newMessages.length - 1].sender === "bot"
-          ) {
-            newMessages[newMessages.length - 1] = {
-              text: updatedBotMessage,
-              sender: "bot",
-            };
-          } else {
-            newMessages.push({
-              text: updatedBotMessage,
-              sender: "bot",
-            });
-          }
-          if (activeTag !== "mm") {
-            sessionStorage.setItem(
-              `${activeTag}Messages`,
-              JSON.stringify(newMessages)
-            );
-          }
-          return newMessages;
-        });
-        return updatedBotMessage;
+    setBotMessage((prevBotMessage) => {
+      const updatedBotMessage = prevBotMessage + content;
+      setMessages((prevMessages) => {
+        const newMessages = [...prevMessages];
+        if (
+          newMessages.length > 0 &&
+          newMessages[newMessages.length - 1].sender === "bot"
+        ) {
+          newMessages[newMessages.length - 1] = {
+            text: updatedBotMessage,
+            sender: "bot",
+          };
+        } else {
+          newMessages.push({
+            text: updatedBotMessage,
+            sender: "bot",
+          });
+        }
+        if (activeTag !== "mm") {
+          sessionStorage.setItem(
+            `${activeTag}Messages`,
+            JSON.stringify(newMessages)
+          );
+        }
+        return newMessages;
       });
-    }
+      return updatedBotMessage;
+    });
   };
 
   const handleDrawMessage = async (userMessage) => {
@@ -130,11 +146,27 @@ export default function ChatContainer() {
   };
 
   const sendMessage = async (customMessage) => {
-    if (!customMessage && !inputMessage.trim()) return;
+    if (!customMessage && !inputMessage.trim() && !pastedImage) return;
 
-    const userMessage = customMessage || inputMessage;
-    if (inputMessage) {
-      addMessage(userMessage, "user");
+    let messageArray = [];
+    if (pastedImage) {
+      messageArray.push({
+        type: "file",
+        file_url: {
+          url: pastedImage,
+        },
+      });
+    }
+    if (inputMessage.trim()) {
+      messageArray.push({
+        type: "text",
+        text: inputMessage.trim(),
+      });
+    }
+
+    const userMessage = customMessage || messageArray;
+    if (inputMessage || pastedImage) {
+      addMessage(JSON.stringify(messageArray), "user");
     }
 
     setInputMessage("");
@@ -163,6 +195,7 @@ export default function ChatContainer() {
       addMessage("对话暂时不可用，请稍后再试", "bot");
     } finally {
       setIsLoading(false);
+      setPastedImage(null);
     }
   };
 
@@ -199,110 +232,174 @@ export default function ChatContainer() {
   }, []);
 
   return (
-    <div
-      className="chat-container"
-      style={{
-        backgroundImage: backgroundImage ? `url(${backgroundImage})` : "none",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      {showToast && <div className="toast">复制成功</div>}
-      <div className="messages-container">
-        {messages.map((msg, index) => (
-          <div
-            key={`message-${index}`}
-            className={`message ${msg.sender}-message`}
-          >
-            {msg.sender === "bot" && <div className="bot-avatar"></div>}
-            <div className="message-content">
-              <ReactMarkdown
-                components={{
-                  code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-([\w-]+)/.exec(className || "");
-                    return !inline && match ? (
-                      <SyntaxHighlighter
-                        style={vscDarkPlus}
-                        language={match[1]}
-                        PreTag="div"
-                        {...props}
-                      >
-                        {String(children).replace(/\n$/, "")}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                }}
-              >
-                {msg.text}
-              </ReactMarkdown>
-              {msg.sender === "bot" && (
-                <div className="message-actions">
-                  <img
-                    src={refreshIcon}
-                    alt="refresh"
-                    className="action-button"
-                    onClick={() => sendMessage(messages[index - 1]?.text)}
-                  />
-                  <img
-                    src={copyIcon}
-                    alt="copy"
-                    className="action-button"
-                    onClick={(e) => handleCopyMessage(e, msg.text)}
-                  />
-                </div>
-              )}
+    <>
+      <div
+        className="chat-container"
+        style={{
+          backgroundImage: backgroundImage ? `url(${backgroundImage})` : "none",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        {showToast && <div className="toast">复制成功</div>}
+        <div className="messages-container">
+          {messages.map((msg, index) => (
+            <div
+              key={`message-${index}`}
+              className={`message ${msg.sender}-message`}
+            >
+              {msg.sender === "bot" && <div className="bot-avatar"></div>}
+              <div className="message-content">
+                {msg.sender === "user" ? (
+                  <div>
+                    {(() => {
+                      try {
+                        const parsedMessage = JSON.parse(msg.text);
+                        return parsedMessage.map((item, i) => (
+                          <div key={i}>
+                            {item.type === "text" && <p>{item.text}</p>}
+                            {item.type === "file" && (
+                              <img
+                                src={item.file_url.url}
+                                alt="用户上传图片"
+                                style={{
+                                  maxWidth: "200px",
+                                  maxHeight: "200px",
+                                }}
+                              />
+                            )}
+                          </div>
+                        ));
+                      } catch {
+                        return <p>{msg.text}</p>;
+                      }
+                    })()}
+                  </div>
+                ) : (
+                  <ReactMarkdown
+                    components={{
+                      code: ({
+                        node,
+                        inline,
+                        className,
+                        children,
+                        ...props
+                      }) => {
+                        const match = /language-([\w-]+)/.exec(className || "");
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={vscDarkPlus}
+                            language={match[1]}
+                            PreTag="div"
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, "")}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {msg.text}
+                  </ReactMarkdown>
+                )}
+                {msg.sender === "bot" && (
+                  <div className="message-actions">
+                    <img
+                      src={refreshIcon}
+                      alt="refresh"
+                      className="action-button"
+                      onClick={() => sendMessage(messages[index - 1]?.text)}
+                    />
+                    <img
+                      src={copyIcon}
+                      alt="copy"
+                      className="action-button"
+                      onClick={(e) => handleCopyMessage(e, msg.text)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="message bot-message loading">
-            <div className="loading-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+          ))}
+          {isLoading && (
+            <div className="message bot-message loading">
+              <div className="loading-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+        <div className="tags-container">
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              className={`tag-button ${activeTag === tag.id ? "active" : ""}`}
+              onClick={() => handleTagChange(tag.id)}
+            >
+              {tag.name}
+            </button>
+          ))}
+          {messages.length > 0 && (
+            <button className="clear-history-button" onClick={clearHistory}>
+              清除历史
+            </button>
+          )}
+        </div>
+        <div className="input-area">
+          {pastedImage && (
+            <div className="image-preview">
+              <img
+                src={pastedImage}
+                alt="预览"
+                style={{ maxWidth: "200px", maxHeight: "80px" }}
+              />
+              <button onClick={() => setPastedImage(null)}>删除</button>
+            </div>
+          )}
+          <div className="input-box">
+            <input
+              type="text"
+              value={inputMessage}
+              disabled={isInputDisabled}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+              onPaste={(e) => {
+                const items = e.clipboardData.items;
+                for (let i = 0; i < items.length; i++) {
+                  if (items[i].type.indexOf("image") !== -1) {
+                    const blob = items[i].getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (e) => setPastedImage(e.target.result);
+                    reader.readAsDataURL(blob);
+                    e.preventDefault();
+                    break;
+                  }
+                }
+              }}
+              placeholder={TAG_PLACEHOLDERS[activeTag] || ""}
+            />
+            <button
+              onClick={() => sendMessage()}
+              disabled={isInputDisabled || isLoading}
+            >
+              发送
+            </button>
           </div>
-        )}
-        <div ref={messagesEndRef} />
+        </div>
       </div>
-      <div className="tags-container">
-        {tags.map((tag) => (
-          <button
-            key={tag.id}
-            className={`tag-button ${activeTag === tag.id ? "active" : ""}`}
-            onClick={() => handleTagChange(tag.id)}
-          >
-            {tag.name}
-          </button>
-        ))}
-        {messages.length > 0 && (
-          <button className="clear-history-button" onClick={clearHistory}>
-            清除历史
-          </button>
-        )}
-      </div>
-      <div className="input-area">
-        <input
-          type="text"
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-          placeholder={TAG_PLACEHOLDERS[activeTag] || ""}
-        />
-        <button
-          onClick={() => sendMessage()}
-          disabled={
-            activeTag !== CHAT_TAGS.SEARCH.id && activeTag !== CHAT_TAGS.DRAW.id
-          }
-        >
-          发送
-        </button>
-      </div>
-    </div>
+      <Editor
+        visible={showEditor}
+        onClose={() => setShowEditor(false)}
+        onAIOptimize={onAIOptimize}
+      />
+    </>
   );
 }
